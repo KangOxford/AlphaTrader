@@ -44,3 +44,5 @@ results_file**
 *.png
 *.npy
 *.nfs*
+
+Dockerfile

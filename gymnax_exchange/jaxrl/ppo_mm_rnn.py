@@ -122,7 +122,7 @@ def make_train(config):
     #env, env_params = gymnax.make(config["ENV_NAME"])
     env = MarketMakingEnv(
         alphatradePath=config["ATFOLDER"],
-        task=config["TASKSIDE"],
+        #task=config["TASKSIDE"],
         window_index=config["WINDOW_INDEX"],
         action_type=config["ACTION_TYPE"],
         episode_time=config["EPISODE_TIME"],
@@ -417,7 +417,7 @@ if __name__ == "__main__":
         "TASKSIDE": "random", # "random", "buy", "sell"
         "REWARD_LAMBDA": 0.001, #0.001,
         "ACTION_TYPE": "pure", # "delta"
-        "WINDOW_INDEX": 87, # 2 fix random episode #-1,
+        "WINDOW_INDEX": -1, # 2 fix random episode #-1,
         "MAX_TASK_SIZE": 100,
         "EPISODE_TIME": 60 * 5, # time in seconds
         "DATA_TYPE": "fixed_time", # "fixed_time", "fixed_steps"
