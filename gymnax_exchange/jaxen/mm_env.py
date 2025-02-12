@@ -292,12 +292,12 @@ class MarketMakingEnv(BaseLOBEnv):
        # (asks, bids, trades), (new_bestask, new_bestbid), new_id_counter, new_time, mkt_exec_quant, doom_quant = \
         #    self._force_market_order_if_done(
         #         bestasks[-1], bestbids[-1], time, asks, bids, trades, state, params)
-        #(asks, bids, trades), new_id_counter, new_time=self._trade_at_midprice(
-        #    bestasks[-1], bestbids[-1], time, asks, bids, trades, state, params)
+        (asks, bids, trades), new_id_counter, new_time=self._trade_at_midprice(
+            bestasks[-1], bestbids[-1], time, asks, bids, trades, state, params)
         bestasks = jnp.concatenate([bestasks,bestasks[-1:,:] ], axis=0, dtype=jnp.int32)
         bestbids = jnp.concatenate([bestbids, bestbids[-1:,:]], axis=0, dtype=jnp.int32)
-        new_id_counter = state.customIDcounter + self.n_actions + 1
-        new_time = time + params.time_delay_obs_act
+        #new_id_counter = state.customIDcounter + self.n_actions + 1
+        #new_time = time + params.time_delay_obs_act
 
         bid_passive_2,quant_bid_passive_2,ask_passive_2,quant_ask_passive_2 = self._get_pass_price_quant(state)
         # TODO: consider adding quantity before (in priority) to each price / level
@@ -921,7 +921,7 @@ class MarketMakingEnv(BaseLOBEnv):
             ep_is_over & (jnp.abs(new_inventory) > 0),  # Check if episode is over and we still have remaining quantity
             place_midprice_trade,  # Place a midprice trade
             lambda trades, b, c, d: trades,  # If not, return the existing trades
-            trades, doom_price, jnp.sign(new_inventory) * new_inventory, new_time  # Inv +ve means incoming is sell so standing buy.
+            trades, mid_price, jnp.sign(new_inventory) * new_inventory, new_time  # Inv +ve means incoming is sell so standing buy.
         )
         #jax.debug.print("trades :{}",trades)
 
@@ -1161,12 +1161,12 @@ class MarketMakingEnv(BaseLOBEnv):
        
 
         # Other versions of reward
-        reward=buyPnL+sellPnL
+        #reward=buyPnL+sellPnL
         #reward=buyPnL+sellPnL -jnp.abs(state.inventory)
         undamped_reward=buyPnL+sellPnL+InventoryPnL
-        scaledInventoryPnL=10*InventoryPnL//(new_inventory+1)
-       # reward=buyPnL+sellPnL-jnp.abs(state.inventory//10)
-        #reward= buyPnL + sellPnL + scaledInventoryPnL - (1-self.rewardLambda)*jnp.maximum(0,scaledInventoryPnL) # Asymmetrically dampened PnL
+        scaledInventoryPnL=InventoryPnL//(new_inventory+1)
+        #reward=buyPnL+sellPnL-jnp.abs(state.inventory//10)
+        reward= buyPnL + sellPnL + scaledInventoryPnL - (1-self.rewardLambda)*jnp.maximum(0,scaledInventoryPnL) # Asymmetrically dampened PnL
         #jax.debug.print("reward:{}",reward)
         #More complex reward function (should be added as part of the env if we actually use them):
         inventoryPnL_lambda = 0.002
