@@ -163,7 +163,7 @@ class EnvParams(BaseEnvParams):
 
 class MarketMakingEnv(BaseLOBEnv):
     def __init__(
-            self, alphatradePath, task, window_index, action_type, episode_time,
+            self, alphatradePath, window_index, action_type, episode_time,
             max_task_size = 500, rewardLambda=0.0001, ep_type="fixed_time"):
         
         #Define Execution-specific attributes.
@@ -1201,6 +1201,8 @@ class MarketMakingEnv(BaseLOBEnv):
         outgoing=(agent_buys[:, 0] / self.tick_size* jnp.abs(agent_buys[:, 1])).sum() 
              
         PnL=(income-outgoing)/self.tick_size
+
+        reward = PnL
        
         #calculate a fraction of total market activity attributable to us.
         other_exec_quants = jnp.abs(otherTrades[:, 1]).sum()
@@ -1466,7 +1468,7 @@ if __name__ == "__main__":
     except:
         # ATFolder = "./testing_oneDay"
         #ATFolder = "/training_oneDay"
-        ATFolder = "/home/duser/AlphaTrade/testing"
+        ATFolder = "/home/duser/AlphaTrade/training_oneDay"
 
         # ATFolder = '/home/duser/AlphaTrade'
         # ATFolder = '/homes/80/kang/AlphaTrade'
