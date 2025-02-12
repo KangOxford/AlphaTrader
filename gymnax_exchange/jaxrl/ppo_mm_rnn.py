@@ -404,7 +404,7 @@ if __name__ == "__main__":
         "TOTAL_TIMESTEPS": 4e6,
         "UPDATE_EPOCHS": 4,
         "NUM_MINIBATCHES": 16,
-        "GAMMA": 0.9999,
+        "GAMMA": 0.99,
         "GAE_LAMBDA": 0.95,
         "CLIP_EPS": 0.2,
         "ENT_COEF": 0.,
