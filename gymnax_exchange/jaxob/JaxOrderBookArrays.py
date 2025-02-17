@@ -275,14 +275,14 @@ def _check_before_matching_bid(data_tuple):
     quantity in the incoming ask order, and whether there are still bid
     orders in the book. 
     """
-    top_order_idx,orderside,qtm,price,trade,_,_,_=data_tuple
+    top_order_idx,orderside,qtm,price,trade,_,_,_,_,_=data_tuple
     returnarray=((orderside[top_order_idx,0]>=price)
                   & (qtm>0)
                   & (orderside[top_order_idx,0]!=-1))
     return jnp.squeeze(returnarray)
 
 @partial(jax.jit,static_argnums=0)
-def _match_against_bid_orders(cfg:Configuration,orderside,qtm,price,trade,agrOID,time,time_ns):
+def _match_against_bid_orders(cfg:Configuration,orderside,qtm,price,trade,agrOID,time,time_ns,agrTID,side):
     """Wrapper for the while loop that gets the top bid order, and
     matches the incoming order against it whilst the 
     _check_before_matching_bid function remains true.
@@ -292,11 +292,11 @@ def _match_against_bid_orders(cfg:Configuration,orderside,qtm,price,trade,agrOID
     match_func=partial(_match_bid_order,cfg)
     top_order_idx=_get_top_bid_order_idx(cfg,orderside)
     (top_order_idx,orderside,
-     qtm,price,trade,_,_,_)=jax.lax.while_loop(_check_before_matching_bid,
+     qtm,price,trade,_,_,_,_,_)=jax.lax.while_loop(_check_before_matching_bid,
                                                match_func,
                                                (top_order_idx,orderside,
                                                 qtm,price,trade,agrOID,
-                                                time,time_ns))
+                                                time,time_ns,agrTID,side))
     return (orderside,qtm,price,trade)
 
 @jax.jit
@@ -307,14 +307,14 @@ def _check_before_matching_ask(data_tuple):
     quantity in the incoming ask order, and whether there are still bid
     orders in the book. 
     """
-    top_order_idx,orderside,qtm,price,trade,_,_,_=data_tuple
+    top_order_idx,orderside,qtm,price,trade,_,_,_,_,_=data_tuple
     returnarray=((orderside[top_order_idx,0]<=price)
                   & (qtm>0) 
                   & (orderside[top_order_idx,0]!=-1))
     return jnp.squeeze(returnarray)
 
 @partial(jax.jit,static_argnums=0)
-def _match_against_ask_orders(cfg: Configuration,orderside,qtm,price,trade,agrOID,time,time_ns):
+def _match_against_ask_orders(cfg: Configuration,orderside,qtm,price,trade,agrOID,time,time_ns,agrTID,side):
     """Wrapper for the while loop that gets the top ask order, and
     matches the incoming order against it whilst the 
     _check_before_matching_ask function remains true.
@@ -323,12 +323,80 @@ def _match_against_ask_orders(cfg: Configuration,orderside,qtm,price,trade,agrOI
     """
     top_order_idx=_get_top_ask_order_idx(cfg,orderside)
     (top_order_idx,orderside,
-     qtm,price,trade,_,_,_)=jax.lax.while_loop(_check_before_matching_ask,
+     qtm,price,trade,_,_,_,_,_)=jax.lax.while_loop(_check_before_matching_ask,
                                                partial(_match_ask_order,cfg),
                                                (top_order_idx,orderside,
                                                 qtm,price,trade,agrOID,
-                                                time,time_ns))
+                                                time,time_ns,agrTID,side))
     return (orderside,qtm,price,trade)
+
+
+
+# ######NEW ONEs########
+
+# @jax.jit
+# def _check_before_matching_bid(data_tuple):
+#     """Conditional statement used by the while loop in 
+#     _match_against_bid_orders which checks if the price of the best bid
+#     order overlaps the incoming ask order, if there is still unmatched
+#     quantity in the incoming ask order, and whether there are still bid
+#     orders in the book. 
+#     """
+#     top_order_idx,orderside,qtm,price,_,_,_,_,_,_=data_tuple
+#     returnarray=((orderside[top_order_idx,0]>=price)
+#                   & (qtm>0)
+#                   & (orderside[top_order_idx,0]!=-1))
+#     return jnp.squeeze(returnarray)
+
+# @jax.jit
+# def _match_against_bid_orders(orderside,qtm,price,trade,agrOID,time,time_ns,agrTID,side):
+#     """Wrapper for the while loop that gets the top bid order, and
+#     matches the incoming order against it whilst the 
+#     _check_before_matching_bid function remains true.
+#     Returns the new set of bid orders after matching, and the remaining
+#     quantity to match/
+#     """
+#     top_order_idx=_get_top_bid_order_idx(orderside)
+#     (top_order_idx,orderside,
+#      qtm,price,trade,_,_,_,_,_)=jax.lax.while_loop(_check_before_matching_bid,
+#                                                _match_bid_order,
+#                                                (top_order_idx,orderside,
+#                                                 qtm,price,trade,agrOID,
+#                                                 time,time_ns,agrTID,side))
+#     return (orderside,qtm,price,trade)
+
+# @jax.jit
+# def _check_before_matching_ask(data_tuple):
+#     """Conditional statement used by the while loop in 
+#     _match_against_ask_orders which checks if the price of the best ask
+#     order overlaps the incoming ask order, if there is still unmatched
+#     quantity in the incoming ask order, and whether there are still bid
+#     orders in the book. 
+#     """
+#     top_order_idx,orderside,qtm,price,_,_,_,_,_,_=data_tuple
+#     returnarray=((orderside[top_order_idx,0]<=price)
+#                   & (qtm>0) 
+#                   & (orderside[top_order_idx,0]!=-1))
+#     return jnp.squeeze(returnarray)
+
+# @jax.jit
+# def _match_against_ask_orders(orderside,qtm,price,trade,agrOID,time,time_ns,agrTID,side):
+#     """Wrapper for the while loop that gets the top ask order, and
+#     matches the incoming order against it whilst the 
+#     _check_before_matching_ask function remains true.
+#     Returns the new set of bid orders after matching, and the remaining
+#     quantity to match.
+#     """
+#     top_order_idx=_get_top_ask_order_idx(orderside)
+#     (top_order_idx,orderside,
+#      qtm,price,trade,_,_,_,_,_)=jax.lax.while_loop(_check_before_matching_ask,
+#                                                _match_ask_order,
+#                                                (top_order_idx,orderside,
+#                                                 qtm,price,trade,agrOID,
+#                                                 time,time_ns,agrTID,side))
+#     return (orderside,qtm,price,trade)
+
+
 
 ################ TYPE AND SIDE FUNCTIONS ################
 

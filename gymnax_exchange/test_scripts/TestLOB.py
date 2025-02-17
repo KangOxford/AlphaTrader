@@ -17,19 +17,16 @@ import gymnax_exchange.utils.utils as utils
 
 
 class TestLimitOrderBookSimulator:
-    def test_add_order_to_full_book(self):
-        # Assuming the order book has a maximum size of 5 for this example
-        max_size = 5
-        for i in range(max_size):
-            self.simulator.add_order({"id": i, "type": "buy", "price": 100 + i, "quantity": 10})
+    def __init__(self):
+        self.cfg=job.Configuration()
 
-        # Try to add one more order beyond the maximum size
-        extra_order = {"id": max_size, "type": "buy", "price": 110, "quantity": 10}
-        try:
-            self.simulator.add_order(extra_order)
-            assert False, "Expected an exception when adding an order to a full book"
-        except Exception as e:
-            assert str(e) == "Order book is full", f"Unexpected exception message: {str(e)}"
+
+    def test_add_order_to_full_book(self):
+        book=utils.create_init_book(self.cfg,order_capacity=100,trade_capacity=100,percent_fill=1)
+        mdict,marray=utils.create_rand_message(type='limit',side='bid')
+        book_out=job.cond_type_side(self.cfg,book,mdict)
+        assert book_out==book
+
     def setup_method(self):
         self.simulator = None
 
@@ -109,17 +106,17 @@ class SpeedExperimentsCore:
                     out,qtm,price,trade=job._match_against_bid_orders(cfg,bids,order["quantity"],order["price"],trades,order["orderid"],order["time"],order["time_ns"],order["orderid"],job.cst.BidAskSide.BID.value)
                 end_time = time.time()
                 times.append(end_time - start_time)
-            if find_order:
+            elif find_order:
                 start_time = time.time()
                 for order in orders:
                     out=job._get_top_bid_order_idx(cfg,bids)
                 end_time = time.time()
                 times.append(end_time - start_time)
-            if match_order:
+            elif match_order:
                 matchtuples=[]
                 for order in orders:
                     idx=job._get_top_bid_order_idx(cfg,bids)
-                    matchtuples.append((idx,order["quantity"],order["price"],trades,order["orderid"],order["time"],order["time_ns"],order["orderid"],job.cst.BidAskSide.BID.value))
+                    matchtuples.append((idx,bids,order["quantity"],order["price"],trades,order["orderid"],order["time"],order["time_ns"],order["orderid"],job.cst.BidAskSide.BID.value))
                 start_time = time.time()
                 for matchtuple in matchtuples:
                     out=job.match_order(matchtuple)
@@ -131,7 +128,7 @@ class SpeedExperimentsCore:
         lower_bound, upper_bound = self.bootstrap_confidence_interval(times)
         mean_time = np.mean(times)
         print(f"Mean time for adding {len(orders)} orders: {mean_time} seconds")
-        print(f"99% confidence interval for adding {len(orders)} orders: [{lower_bound}, {upper_bound}] seconds")
+        print(f"99% confidence interval for matching {len(orders)} orders: [{lower_bound}, {upper_bound}] seconds")
         return mean_time, lower_bound, upper_bound
 
     def test_speed_cancel_order(self,n_orders,booksize,n_samples=100):
@@ -152,23 +149,14 @@ class SpeedExperimentsCore:
         print(f"99% confidence interval for canceling {n_orders} orders: [{lower_bound}, {upper_bound}] seconds")
         return mean_time, lower_bound, upper_bound
 
-    def test_speed_get_order_book(self):
-        for i in range(1000):
-            self.simulator.add_order({"id": i, "type": "buy", "price": 100 + i, "quantity": 10})
-        start_time = time.time()
-        self.simulator.get_order_book()
-        end_time = time.time()
-        print(f"Time taken to get order book: {end_time - start_time} seconds")
+
 
 if __name__ == "__main__":
     tester = TestLimitOrderBookSimulator()
-    tester.setup_method()
-    tester.test_add_order()
-    tester.test_cancel_order()
-    tester.test_match_orders()
-    tester.test_get_order_book()
+
+    tester.test_add_order_to_full_book()
 
     speed_tester = SpeedExperimentsCore()
     # speed_tester.test_speed_add_order(1000,100,rand_orders=True)
-    speed_tester.test_speed_match_orders(100,100)
+    # speed_tester.test_speed_match_orders(100,100,find_order=True,match_order=False)
 
