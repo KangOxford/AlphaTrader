@@ -5,10 +5,45 @@ class MaxInt(Enum):
     _64_Bit_Signed=2_147_483_647
     _32_Bit_Signed=32_767
 
+# Actual constants, will never change.
 INITID=-900000
+DUMMYID=-888888
 EMPTY_SLOT=-1
+
+ORDERBOOK_FEAT=6
+TRADE_FEAT=8
+NS_PER_SEC=1e9
+
+# Default values for the config.
+
 NTRADE_CAP=100
 NORDER_CAP=100
+STARTOFDAY=[34200 , 0]
+ENDOFDAY=[57600 , 0]
+TEST_TIME=[44444,44444]
+
+
+# LOBSTER Message types, 
+class MessageType(Enum):
+    LIMIT=1  
+    CANCEL=2 
+    DELETE=3 
+    MATCH=4
+    HIDDEN=5
+    AUCTION=6
+    HALT=7
+
+class OrderSideFeat(Enum):
+    P=0 #Price
+    Q=1 #Quantity
+    OID=2 #Order ID
+    TID=3 # Trade ID
+    SEC=4 #Seconds
+    NSEC=5 #Nanoseconds 
+
+class BidAskSide(Enum):
+    BID=1
+    ASK=-1
 
 
 #Define as static...? Might solve 

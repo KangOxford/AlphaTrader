@@ -70,7 +70,7 @@ def add_order(orderside: chex.Array, msg: dict) -> chex.Array :
         Returns:
                 orderside (Array): Side of orderbook with added order 
     """
-    emptyidx=jnp.where(orderside==-1,size=1,fill_value=-1)[0]
+    emptyidx=jnp.where(orderside==cst.EMPTY_SLOT,size=1,fill_value=-1)[0]
     orderside=orderside.at[emptyidx,:]\
                         .set(jnp.array([
                             msg['price'],

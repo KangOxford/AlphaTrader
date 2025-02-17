@@ -14,3 +14,4 @@ class Configuration:
     nOrders : int =cst.NORDER_CAP
     simulator_mode=cst.SimulatorMode.GENERAL_EXCHANGE.value
     empty_slot_val=cst.EMPTY_SLOT
+    
