@@ -186,6 +186,9 @@ def match_order(data_tuple):
                     agrOID (Int): Order ID of the incoming order
                     time (Int): Arrival time (s) of incoming order
                     time_ns (Int): Arrival time (ns) of incoming order
+                    agrTID (Int): Trader ID of the incoming orde
+                    side (Int): The side of the incoming message: bid (S = 1) or ask (S = −1)
+
         
         Returns:
                 data_tuple (Tuple): Same as input tuple, but without
@@ -195,22 +198,27 @@ def match_order(data_tuple):
 
     """
     (top_order_idx, orderside, qtm, price,
-            trade, agrOID, time, time_ns) = data_tuple
+            trade, agrOID, time, time_ns,agrTID,side) = data_tuple
     newquant=jnp.maximum(0,orderside[top_order_idx,1]-qtm)
     qtm=qtm-orderside[top_order_idx,1]
     qtm=qtm.astype(jnp.int32)
     emptyidx=jnp.where(trade==-1,size=1,fill_value=-1)[0]
+    passTID=orderside[top_order_idx,3]
+    #side is 1 if incoming order is a buy.//
+    #This makes trade q<0 if incoming order is a buy,i.e, a standing sale, and q>0 if there is a standing buy.
     trade=trade.at[emptyidx,:] \
                 .set(jnp.array([orderside[top_order_idx,0],
-                                orderside[top_order_idx,1]-newquant,
+                                 -side * (orderside[top_order_idx, 1] - newquant),
                                 orderside[top_order_idx,2],
                                 [agrOID],
                                 [time],
-                                [time_ns]]).transpose())
+                                [time_ns],
+                                passTID,
+                                [agrTID]]).transpose())
+    
     orderside=_removeZeroNegQuant(orderside.at[top_order_idx,1].set(newquant))
     return (orderside.astype(jnp.int32), jnp.squeeze(qtm),
-             price, trade, agrOID, time, time_ns)
-
+             price, trade, agrOID,time,time_ns,agrTID,side)
 
 @partial(jax.jit, static_argnums=(0,))
 def _match_bid_order(cfg:Configuration,data_tuple):

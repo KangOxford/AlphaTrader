@@ -106,7 +106,7 @@ class SpeedExperimentsCore:
             if find_order and match_order:
                 start_time = time.time()
                 for order in orders:
-                    out,qtm,price,trade=job._match_against_bid_orders(cfg,bids,order["quantity"],order["price"],trades,order["orderid"],order["time"],order["time_ns"])
+                    out,qtm,price,trade=job._match_against_bid_orders(cfg,bids,order["quantity"],order["price"],trades,order["orderid"],order["time"],order["time_ns"],order["orderid"],job.cst.BidAskSide.BID.value)
                 end_time = time.time()
                 times.append(end_time - start_time)
             if find_order:
@@ -119,7 +119,7 @@ class SpeedExperimentsCore:
                 matchtuples=[]
                 for order in orders:
                     idx=job._get_top_bid_order_idx(cfg,bids)
-                    matchtuples.append((idx,order["quantity"],order["price"],trades,order["orderid"],order["time"],order["time_ns"]))
+                    matchtuples.append((idx,order["quantity"],order["price"],trades,order["orderid"],order["time"],order["time_ns"],order["orderid"],job.cst.BidAskSide.BID.value))
                 start_time = time.time()
                 for matchtuple in matchtuples:
                     out=job.match_order(matchtuple)
