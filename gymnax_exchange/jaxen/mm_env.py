@@ -138,6 +138,9 @@ import dataclasses
 
 import jax.tree_util as jtu
 
+
+
+
 @struct.dataclass
 class EnvState(BaseEnvState):
     prev_action: chex.Array
@@ -174,7 +177,7 @@ class MarketMakingEnv(BaseLOBEnv):
         self.market_share=0.
         self.rewardLambda = rewardLambda #
         # TODO: fix!! this can be overwritten in the base class
-        self.n_actions = 4 # 4: (FT, M, NT, PP), 3: (FT, NT, PP), 2 (FT, NT), 1 (FT)
+        self.n_actions = 4 # 4: (FT, M, NT, PP), 3: (FT, NT, PP), 2 (FT, NT), 1 (FT   
         
         super().__init__(
             alphatradePath,
@@ -182,6 +185,7 @@ class MarketMakingEnv(BaseLOBEnv):
             episode_time,
             ep_type,
         )
+      
 
     @property
     def default_params(self) -> EnvParams:
@@ -213,6 +217,7 @@ class MarketMakingEnv(BaseLOBEnv):
             state.step_counter,
             state.init_time[0] + params.episode_time
         )
+        
         #data_messages=self._get_generative_messages(params.message_data,100)
        # jax.debug.print("data_messages :{}",data_messages)
         #=======================================#
@@ -264,7 +269,7 @@ class MarketMakingEnv(BaseLOBEnv):
         # To only ever consider the trades from the last step simply replace state.trades with an array of -1s of the same size. 
         trades_reinit = (jnp.ones((self.nTradesLogged, 8)) * -1).astype(jnp.int32)
         # Process messages of step (action+data) through the orderbook
-        (asks, bids, trades), (bestasks, bestbids) = job.scan_through_entire_array_save_bidask(
+        (asks, bids, trades), (bestasks, bestbids) = job.scan_through_entire_array_save_bidask(self.cfg,key,
             total_messages,
             (state.ask_raw_orders, state.bid_raw_orders, trades_reinit),
             # TODO: this returns bid/ask for last stepLines only, could miss the direct impact of actions
@@ -290,7 +295,7 @@ class MarketMakingEnv(BaseLOBEnv):
         #===force inventory sale at episode end=#
         #=======================================#
        # (asks, bids, trades), (new_bestask, new_bestbid), new_id_counter, new_time, mkt_exec_quant, doom_quant = \
-        #    self._force_market_order_if_done(
+        #    self._force_market_order_if_done(key,
         #         bestasks[-1], bestbids[-1], time, asks, bids, trades, state, params)
         (asks, bids, trades), new_id_counter, new_time=self._trade_at_midprice(
             bestasks[-1], bestbids[-1], time, asks, bids, trades, state, params)
@@ -413,7 +418,7 @@ class MarketMakingEnv(BaseLOBEnv):
         """Reset state from data"""
         base_state = super()._get_state_from_data(first_message, book_data, max_steps_in_episode, window_index, start_index)
         base_vals = jtu.tree_flatten(base_state)[0]
-        best_ask, best_bid = job.get_best_bid_and_ask_inclQuants(base_state.ask_raw_orders,base_state.bid_raw_orders)
+        best_ask, best_bid = job.get_best_bid_and_ask_inclQuants(self.cfg,base_state.ask_raw_orders,base_state.bid_raw_orders)
         M = (best_bid[0] + best_ask[0]) // 2 // self.tick_size * self.tick_size 
 
         return EnvState(
@@ -777,7 +782,7 @@ class MarketMakingEnv(BaseLOBEnv):
             BI = best_bid + self.tick_size*self.n_ticks_in_book #BID inside, slightly more aggresive buying
             NT = best_bid
             PP = best_bid - self.tick_size*self.n_ticks_in_book
-            MKT = job.MAX_INT
+            MKT = self.cfg.maxint
             if action.shape[0]//2 == 4:
                 return FT, M, NT, PP, MKT
             elif action.shape[0]//2 == 3:
@@ -935,6 +940,7 @@ class MarketMakingEnv(BaseLOBEnv):
     
     def _force_market_order_if_done(
             self,
+            key: chex.PRNGKey,
             #quant_left: jax.Array,
             bestask: jax.Array,
             bestbid: jax.Array,
@@ -954,7 +960,7 @@ class MarketMakingEnv(BaseLOBEnv):
             order at 0 or max int. Buy if inventory is less than zero and
             visa versa'''
             is_sell_task = jnp.where(state.inventory > 0, 1, 0)
-            mkt_p = (1 - is_sell_task) * job.MAX_INT // self.tick_size * self.tick_size
+            mkt_p = (1 - is_sell_task) * self.cfg.maxint // self.tick_size * self.tick_size
             side = (1 - is_sell_task*2)
             # TODO: this addition wouldn't work if the ns time at index 1 increases to more than 1 sec
             new_time = time + params.time_delay_obs_act
@@ -1013,7 +1019,7 @@ class MarketMakingEnv(BaseLOBEnv):
         )
         cnl_msgs = jnp.concatenate([cnl_msg_bid, cnl_msg_ask], axis=0)
         
-        (asks, bids, trades), (new_bestask, new_bestbid) = job.scan_through_entire_array_save_bidask(
+        (asks, bids, trades), (new_bestask, new_bestbid) = job.scan_through_entire_array_save_bidask(self.cfg,key,
             cnl_msgs, 
             (asks, bids, trades),
             # TODO: this returns bid/ask for last stepLines only, could miss the direct impact of actions
@@ -1021,9 +1027,9 @@ class MarketMakingEnv(BaseLOBEnv):
         )
    
         #Filter our new message through the orderbook#
-        (asks, bids, trades), (new_bestask, new_bestbid) = job.cond_type_side_save_bidask(
+        (asks, bids, trades), (new_bestask, new_bestbid) = job.cond_type_side_save_bidask(self.cfg,
             (asks, bids, trades),
-            order_msg
+            (key,order_msg)
         )
         
         # make sure best prices use the most recent available price and are not negative
@@ -1055,7 +1061,7 @@ class MarketMakingEnv(BaseLOBEnv):
         )
         cnl_msgs = jnp.concatenate([cnl_msg_bid, cnl_msg_ask], axis=0)
 
-        (asks, bids, trades), (new_bestask, new_bestbid) = job.scan_through_entire_array_save_bidask(
+        (asks, bids, trades), (new_bestask, new_bestbid) = job.scan_through_entire_array_save_bidask(self.cfg,key,
             cnl_msgs, 
             (asks, bids, trades),
             # TODO: this returns bid/ask for last stepLines only, could miss the direct impact of actions
@@ -1477,7 +1483,7 @@ if __name__ == "__main__":
         # ATFolder = "/homes/80/kang/AlphaTrade/testing"
     config = {
         "ATFOLDER": ATFolder,
-        "TASKSIDE": "buy",
+        #"TASKSIDE": "buy",
         "MAX_TASK_SIZE": 100,
         "WINDOW_INDEX": 2,
         "ACTION_TYPE": "pure",
@@ -1492,7 +1498,7 @@ if __name__ == "__main__":
     # env=MarketMakingEnv(ATFolder,"sell",1)
     env = MarketMakingEnv(
         alphatradePath=config["ATFOLDER"],
-        task=config["TASKSIDE"],
+       # task=config["TASKSIDE"],
         window_index=config["WINDOW_INDEX"],
         action_type=config["ACTION_TYPE"],
         episode_time=config["EPISODE_TIME"],

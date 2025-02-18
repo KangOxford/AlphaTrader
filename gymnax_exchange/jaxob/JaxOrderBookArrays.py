@@ -650,13 +650,13 @@ def cond_type_side_save_bidask(cfg:Configuration,book_state,it_data):
              + (((s ==  1) & (t == 2)) | ((s ==  1) & (t == 3))) * 3
              +((s==0)&(t==0))*4)
     ask, bid, trade = jax.lax.switch(index,
-                                     (ask_lim, bid_lim,
+                                     (partial(ask_lim,cfg), partial(bid_lim,cfg),
                                        partial(ask_cancel,cfg,key), partial(bid_cancel,cfg,key),doNothing),
                                      msg,
                                      askside,
                                      bidside,
                                      trades)
-    return (ask,bid,trade),get_best_bid_and_ask_inclQuants(ask,bid)
+    return (ask,bid,trade),get_best_bid_and_ask_inclQuants(cfg,ask,bid)
 
 ################ SCAN FUNCTIONS ################
 

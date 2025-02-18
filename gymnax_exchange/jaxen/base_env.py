@@ -74,6 +74,8 @@ from gymnax_exchange.utils.utils import *
 import pickle
 from jax.experimental import checkify
 
+#Config File:
+from gymnax_exchange.jaxob.jaxob_config import Configuration
 
 @struct.dataclass
 class EnvState:
@@ -87,6 +89,7 @@ class EnvState:
     step_counter: int
     max_steps_in_episode: int
     start_index: int
+    
 
 
 @struct.dataclass
@@ -170,12 +173,14 @@ class BaseLOBEnv(environment.Environment):
         self.nOrdersPerSide=100
         self.nTradesLogged=100
         self.book_depth=10
-        self.n_actions=7
+        self.n_actions=4
         self.n_ticks_in_book = 2 # Depth of PP actions
         self.customIDCounter=0
         self.trader_unique_id=10
         self.tick_size=100
         self.start_resolution=60 #Interval in seconds at which eps start
+        self.cfg =Configuration()
+        print("Type of cfg before passing:", type(self.cfg))
         loader=LoadLOBSTER_resample(alphatradePath,
                                     self.book_depth,
                                     ep_type,

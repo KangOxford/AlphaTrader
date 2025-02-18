@@ -228,7 +228,7 @@ class ExecutionEnv(BaseLOBEnv):
         )
         cnl_msgs = job.getCancelMsgs(
             raw_order_side,
-            job.INITID + 1,
+            self.cfg.init_id + 1,
             self.n_actions,  # max number of orders to cancel
             1 - state.is_sell_task * 2
         )
@@ -244,7 +244,7 @@ class ExecutionEnv(BaseLOBEnv):
         # To only ever consider the trades from the last step simply replace state.trades with an array of -1s of the same size. 
         trades_reinit = (jnp.ones((self.nTradesLogged, 8)) * -1).astype(jnp.int32)
         # Process messages of step (action+data) through the orderbook
-        (asks, bids, trades), (bestasks, bestbids) = job.scan_through_entire_array_save_bidask(
+        (asks, bids, trades), (bestasks, bestbids) = job.scan_through_entire_array_save_bidask(self.cfg, key,
             total_messages,
             (state.ask_raw_orders, state.bid_raw_orders, trades_reinit),
             # TODO: this returns bid/ask for last stepLines only, could miss the direct impact of actions
@@ -280,7 +280,7 @@ class ExecutionEnv(BaseLOBEnv):
 
         # TODO: check if episode time is over and force market order if necessary
         (asks, bids, trades), (new_bestask, new_bestbid), new_id_counter, new_time, mkt_exec_quant, doom_quant = \
-            self._force_market_order_if_done(
+            self._force_market_order_if_done(key,
                 quant_left, bestasks[-1], bestbids[-1], time, asks, bids, trades, state, params)
 
         bestasks = jnp.concatenate([bestasks, jnp.resize(new_bestask, (1, 2))], axis=0, dtype=jnp.int32)
@@ -427,7 +427,7 @@ class ExecutionEnv(BaseLOBEnv):
         #(self,message_data,book_data,max_steps_in_episode)
         base_state = super()._get_state_from_data(first_message, book_data, max_steps_in_episode, window_index, start_index)
         base_vals = jtu.tree_flatten(base_state)[0]
-        best_ask, best_bid = job.get_best_bid_and_ask_inclQuants(base_state.ask_raw_orders,base_state.bid_raw_orders)
+        best_ask, best_bid = job.get_best_bid_and_ask_inclQuants(self.cfg,base_state.ask_raw_orders,base_state.bid_raw_orders)
         M = (best_bid[0] + best_ask[0]) // 2 // self.tick_size * self.tick_size 
         # if task is 'random', this will be randomly picked at env reset
         is_sell_task = 0 if self.task == 'buy' else 1 # if self.task == 'random', set defualt as 0
@@ -699,7 +699,7 @@ class ExecutionEnv(BaseLOBEnv):
             M = ((best_bid + best_ask) // 2 // self.tick_size) * self.tick_size
             NT = best_bid
             PP = best_bid - self.tick_size*self.n_ticks_in_book
-            MKT = job.MAX_INT
+            MKT = self.cfg.maxint
             if action.shape[0] == 4:
                 return FT, M, NT, PP, MKT
             elif action.shape[0] == 3:
@@ -776,6 +776,7 @@ class ExecutionEnv(BaseLOBEnv):
 
     def _force_market_order_if_done(
             self,
+            key: chex.PRNGKey,
             quant_left: jax.Array,
             bestask: jax.Array,
             bestbid: jax.Array,
@@ -789,7 +790,7 @@ class ExecutionEnv(BaseLOBEnv):
         """ Force a market order if episode is over (either in terms of time or steps). """
         
         def create_mkt_order():
-            mkt_p = (1 - state.is_sell_task) * job.MAX_INT // self.tick_size * self.tick_size
+            mkt_p = (1 - state.is_sell_task) * self.cfg.maxint // self.tick_size * self.tick_size
             side = (1 - state.is_sell_task*2)
             # TODO: this addition wouldn't work if the ns time at index 1 increases to more than 1 sec
             new_time = time + params.time_delay_obs_act
@@ -831,9 +832,9 @@ class ExecutionEnv(BaseLOBEnv):
 
         # jax.debug.print("trades before mkt\n {}", trades[:20])
 
-        (asks, bids, trades), (new_bestask, new_bestbid) = job.cond_type_side_save_bidask(
+        (asks, bids, trades), (new_bestask, new_bestbid) = job.cond_type_side_save_bidask(self.cfg,
             (asks, bids, trades),
-            order_msg
+            (key,order_msg)
         )
         # jax.debug.print("trades after mkt\n {}", trades[:20])
 
