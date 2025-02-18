@@ -1,7 +1,7 @@
 import jax
 import jax.numpy as jnp
 
-from utils.jstring import JString
+#from utils.jstring import JString
 
 import distrax
 import optax

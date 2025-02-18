@@ -52,7 +52,7 @@ env = LogWrapper(env)
 
 num_tokens = 1 + env.action_space(env_params).n + 256
 config["MIN_ACTION_TOK"] = 1
-config["MAX_ACTION_TOK"] = 8
+config["MAX_ACTION_TOK"] = 2
 
 RWKV, params = get_rand_model(0, "6", 3, 256, num_tokens, dtype=jnp.float32, rwkv_type="ScanRWKV")
 forward, params = get_ppo_agent(RWKV, params, seed=1)

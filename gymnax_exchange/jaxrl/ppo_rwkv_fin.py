@@ -6,7 +6,7 @@ import sys
 import os
 sys.path.append(os.path.abspath('/home/duser/AlphaTrade')) 
 import jax.numpy as jnp
-import flax.linen as nn
+#import flax.linen as nn
 import datetime
 import numpy as np
 import optax
@@ -18,10 +18,10 @@ import distrax
 import gymnax
 import functools
 from gymnax.environments import spaces
-from purejaxrl.purejaxrl.wrappers import FlattenObservationWrapper, LogWrapper
+from gymnax_exchange.jaxrl.utils import FlattenObservationWrapper, LogWrapper
 from jax._src import dtypes
 from gymnax_exchange.jaxen.mm_env import MarketMakingEnv 
-import flax
+#import flax
 from jax.lib import xla_bridge 
 print(xla_bridge.get_backend().platform)
 #Code snippet to disable all jitting.
@@ -35,9 +35,9 @@ jax.numpy.set_printoptions(linewidth=250)
 import dataclasses
 import jax
 import jax.numpy as jnp
-import optax
+#import optax
 import distrax
-from purejaxrl.purejaxrl.wrappers import FlattenObservationWrapper, LogWrapper
+
 
 from jax_rwkv.src.auto import get_rand_model
 from gymnax_exchange.jaxrl.rl_processing import get_ppo_agent, calculate_gae, get_jit_ppo, PAD_FLAG, OBS_FLAG, ACT_FLAG
