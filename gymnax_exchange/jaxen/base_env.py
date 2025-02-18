@@ -162,7 +162,7 @@ class BaseLOBEnv(environment.Environment):
     info(additional=""):
         Prints the person's name and age.
     """
-    def __init__(self, alphatradePath, window_selector, sliceTimeWindow, ep_type="fixed_time"):
+    def __init__(self,key, alphatradePath, window_selector, sliceTimeWindow, ep_type="fixed_time"):
         super().__init__()
         self.window_selector = window_selector
         self.ep_type = ep_type # fixed_steps, fixed_time
@@ -180,7 +180,6 @@ class BaseLOBEnv(environment.Environment):
         self.tick_size=100
         self.start_resolution=60 #Interval in seconds at which eps start
         self.cfg =Configuration()
-        print("Type of cfg before passing:", type(self.cfg))
         loader=LoadLOBSTER_resample(alphatradePath,
                                     self.book_depth,
                                     ep_type,
@@ -194,7 +193,7 @@ class BaseLOBEnv(environment.Environment):
         self.n_windows = starts.shape[0]
         self.start_indeces=starts
         self.end_indeces=ends
-        self._init_states(alphatradePath,self.start_indeces)
+        self._init_states(key,alphatradePath,self.start_indeces)
     
     @property
     def default_params(self) -> EnvParams:
@@ -212,11 +211,11 @@ class BaseLOBEnv(environment.Environment):
         self, key: chex.PRNGKey, state: EnvState, action: Dict, params: EnvParams
     ) -> Tuple[chex.Array, EnvState, float, bool, dict]:
         #Obtain the messages for the step from the message data
-        #data_messages=#self._get_data_messages(params.message_data,
-                       #                       state.start_index,
-                        #                      state.step_counter,
-                         #                     state.init_time[0]+params.episode_time)
-        data_messages=self._get_generative_messages(params.message_data,n_messages)
+        data_messages=self._get_data_messages(params.message_data,
+                                              state.start_index,
+                                              state.step_counter,
+                                              state.init_time[0]+params.episode_time)
+        #data_messages=self._get_generative_messages(params.message_data,n_messages)
         
         #Note: Action of the base environment should consistently be "DO NOTHING"
 
@@ -226,7 +225,7 @@ class BaseLOBEnv(environment.Environment):
         time=total_messages[-1:][0][-2:]
         #Process messages of step (action+data) through the orderbook
         
-        ordersides=job.scan_through_entire_array(total_messages,(state.ask_raw_orders,state.bid_raw_orders,state.trades))
+        ordersides=job.scan_through_entire_array(self.cfg,key,total_messages,(state.ask_raw_orders,state.bid_raw_orders,state.trades))
 
         #Update state (ask,bid,trades,init_time,current_time,OrderID counter,window index for ep, step counter)
         state = EnvState(ordersides[0],ordersides[1],ordersides[2],state.init_time,time,state.customIDcounter+self.n_actions,\
@@ -253,13 +252,12 @@ class BaseLOBEnv(environment.Environment):
         #jax.debug.print("Time: {} , Init time: {}, Difference: {}",state.time, state.init_time,(state.time-state.init_time)[0])
         return (state.time-state.init_time)[0]>=params.episode_time
 
-    def _get_state_from_data(self,first_message,book_data,max_steps_in_episode,window_index,start_index)->EnvState:
+    def _get_state_from_data(self,key,first_message,book_data,max_steps_in_episode,window_index,start_index)->EnvState:
         time=jnp.array(first_message[-2:])
         #Get initial orders (2xNdepth)x6 based on the initial L2 orderbook for this window 
         def get_initial_orders(book_data,time):
             orderbookLevels=10
-            #initid=25
-            initid=job.INITID
+            initid=self.cfg.init_id
             data=jnp.array(book_data).reshape(int(10*2),2)
             newarr = jnp.zeros((int(orderbookLevels*2),8),dtype=jnp.int32)
             initOB = newarr \
@@ -276,11 +274,11 @@ class BaseLOBEnv(environment.Environment):
         init_orders=get_initial_orders(book_data,time)
         #jax.debug.print("init_orders {}",init_orders)
         #Initialise both sides of the book as being empty
-        asks_raw=job.init_orderside(self.nOrdersPerSide)
-        bids_raw=job.init_orderside(self.nOrdersPerSide)
-        trades_init=(jnp.ones((self.nTradesLogged,8))*-1).astype(jnp.int32)
+        asks_raw=job.init_orderside(self.cfg.nOrders)
+        bids_raw=job.init_orderside(self.cfg.nOrders)
+        trades_init=(jnp.ones((self.cfg.nTrades,8))*-1).astype(jnp.int32)
         #Process the initial messages through the orderbook
-        ordersides=job.scan_through_entire_array(init_orders,(asks_raw,bids_raw,trades_init))
+        ordersides=job.scan_through_entire_array(self.cfg,key,init_orders,(asks_raw,bids_raw,trades_init))
         #jax.debug.print("trades init {}",ordersides[2])
         return EnvState(ask_raw_orders=ordersides[0],
                         bid_raw_orders=ordersides[1],
@@ -296,7 +294,7 @@ class BaseLOBEnv(environment.Environment):
                         max_steps_in_episode=max_steps_in_episode,
                         start_index=start_index)
 
-    def _init_states(self,alphatradePath,starts):
+    def _init_states(self,key,alphatradePath,starts):
         print("START:  pre-reset in the initialization")
         pkl_file_name = (alphatradePath
                          + '_' + type(self).__name__
@@ -311,13 +309,13 @@ class BaseLOBEnv(environment.Environment):
                 print("LOADING STATES FROM PKL...")
         except:
             print("COMPUTING INIT STATES...")
-            states = [self._get_state_from_data(self.messages[starts[i]],
+            states = [self._get_state_from_data(key,self.messages[starts[i]],
                                                 self.books[i],
-                                                self.max_messages_in_episode_arr[i]
-                                                    //self.stepLines+1,
+                                                self.max_messages_in_episode_arr[i]//self.stepLines+1,
                                                     i,
                                                     starts[i]) 
-                        for i in range(self.n_windows)]
+                        for i in range(self.n_windows)
+                        for _ in [print(f"Processing window {i + 1}/{self.n_windows}") if i % 10 == 0 else None]]
             
             self.init_states_array=tree_stack(states)
             print("SAVING STATES TO PKL...")
@@ -409,9 +407,9 @@ class BaseLOBEnv(environment.Environment):
         """
         return spaces.Dict(
             {
-                "bids": spaces.Box(-1,999999999,shape=(6,self.nOrdersPerSide),dtype=jnp.int32),
-                "asks": spaces.Box(-1,999999999,shape=(6,self.nOrdersPerSide),dtype=jnp.int32),
-                "trades": spaces.Box(-1,999999999,shape=(8,self.nTradesLogged),dtype=jnp.int32),
+                "bids": spaces.Box(-1,999999999,shape=(6,self.cfg.nOrders),dtype=jnp.int32),
+                "asks": spaces.Box(-1,999999999,shape=(6,self.cfg.nOrders),dtype=jnp.int32),
+                "trades": spaces.Box(-1,999999999,shape=(8,self.cfg.nTrades),dtype=jnp.int32),
                 "time": spaces.Discrete(params.max_steps_in_episode),
             }
         )

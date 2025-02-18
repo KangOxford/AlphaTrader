@@ -166,7 +166,7 @@ class EnvParams(BaseEnvParams):
 
 class MarketMakingEnv(BaseLOBEnv):
     def __init__(
-            self, alphatradePath, window_index, action_type, episode_time,
+            self,key, alphatradePath, window_index, action_type, episode_time,
             max_task_size = 500, rewardLambda=0.0001, ep_type="fixed_time"):
         
         #Define Execution-specific attributes.
@@ -178,8 +178,8 @@ class MarketMakingEnv(BaseLOBEnv):
         self.rewardLambda = rewardLambda #
         # TODO: fix!! this can be overwritten in the base class
         self.n_actions = 4 # 4: (FT, M, NT, PP), 3: (FT, NT, PP), 2 (FT, NT), 1 (FT   
-        
         super().__init__(
+            key,
             alphatradePath,
             window_index,
             episode_time,
@@ -414,9 +414,9 @@ class MarketMakingEnv(BaseLOBEnv):
         quant_ask_passive_2 = job.get_volume_at_price(state.ask_raw_orders, ask_passive_2)
         return bid_passive_2,quant_bid_passive_2,ask_passive_2,quant_ask_passive_2
     
-    def _get_state_from_data(self,first_message,book_data,max_steps_in_episode,window_index,start_index):
+    def _get_state_from_data(self,key,first_message,book_data,max_steps_in_episode,window_index,start_index):
         """Reset state from data"""
-        base_state = super()._get_state_from_data(first_message, book_data, max_steps_in_episode, window_index, start_index)
+        base_state = super()._get_state_from_data(key,first_message, book_data, max_steps_in_episode, window_index, start_index)
         base_vals = jtu.tree_flatten(base_state)[0]
         best_ask, best_bid = job.get_best_bid_and_ask_inclQuants(self.cfg,base_state.ask_raw_orders,base_state.bid_raw_orders)
         M = (best_bid[0] + best_ask[0]) // 2 // self.tick_size * self.tick_size 
@@ -1172,7 +1172,7 @@ class MarketMakingEnv(BaseLOBEnv):
         undamped_reward=buyPnL+sellPnL+InventoryPnL
         scaledInventoryPnL=InventoryPnL//(new_inventory+1)
         #reward=buyPnL+sellPnL-jnp.abs(state.inventory//10)
-        reward= buyPnL + sellPnL + scaledInventoryPnL - (1-self.rewardLambda)*jnp.maximum(0,scaledInventoryPnL) # Asymmetrically dampened PnL
+        #reward= buyPnL + sellPnL + scaledInventoryPnL - (1-self.rewardLambda)*jnp.maximum(0,scaledInventoryPnL) # Asymmetrically dampened PnL
         #jax.debug.print("reward:{}",reward)
         #More complex reward function (should be added as part of the env if we actually use them):
         inventoryPnL_lambda = 0.002
@@ -1189,10 +1189,10 @@ class MarketMakingEnv(BaseLOBEnv):
   
         #reward = approx_realized_pnl + unrealizedPnL_lambda * approx_unrealized_pnl +  inventoryPnL_lambda * jnp.minimum(InventoryPnL,InventoryPnL*asymmetrically_dampened_lambda) #Last term adds negative inventory PnL without dampening
        
-        #reward= -jnp.abs(new_inventory)
+        reward= -jnp.abs(new_inventory)
         
 
-        # Define a penalty if he exceeds a certain inventory
+        #Define a penalty if he exceeds a certain inventory
        # penalty_threshold = 100.0
        # penalty_amount = 500.0 
        # penalty = jnp.where(jnp.abs(state.inventory) > penalty_threshold, penalty_amount, 0.0)
@@ -1208,7 +1208,7 @@ class MarketMakingEnv(BaseLOBEnv):
              
         PnL=(income-outgoing)/self.tick_size
 
-        reward = PnL
+        #reward = PnL
        
         #calculate a fraction of total market activity attributable to us.
         other_exec_quants = jnp.abs(otherTrades[:, 1]).sum()
@@ -1484,19 +1484,22 @@ if __name__ == "__main__":
     config = {
         "ATFOLDER": ATFolder,
         #"TASKSIDE": "buy",
+
         "MAX_TASK_SIZE": 100,
         "WINDOW_INDEX": 2,
         "ACTION_TYPE": "pure",
         "REWARD_LAMBDA": 0.1,
         "EP_TYPE": "fixed_time",
-        "EPISODE_TIME": 240,  # 
+        "EPISODE_TIME": 60*60,  # 
     }
         
     rng = jax.random.PRNGKey(0)
     rng, key_reset, key_policy, key_step = jax.random.split(rng, 4)
-
+    
     # env=MarketMakingEnv(ATFolder,"sell",1)
+
     env = MarketMakingEnv(
+        key_reset,
         alphatradePath=config["ATFOLDER"],
        # task=config["TASKSIDE"],
         window_index=config["WINDOW_INDEX"],
