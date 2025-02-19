@@ -46,6 +46,7 @@ is_terminal:        Checks whether the current state is terminal, based on
 action_space:       Defines the action space for execution tasks, including 
                     order types and quantities.
 observation_space:  Define the observation space for execution tasks.
+
 state_space:        Describes the state space of the environment, tailored 
                     for execution tasks with components 
                     like bids, asks, and trades.

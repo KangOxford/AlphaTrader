@@ -86,9 +86,12 @@ def make_train(config):
     config["MINIBATCH_SIZE"] = (
         config["NUM_ENVS"] * config["NUM_STEPS"] // config["NUM_MINIBATCHES"]
     )
+    rng = jax.random.key(0)
+    rng, key_reset, key_policy, key_step = jax.random.split(rng, 4)
     env = MarketMakingEnv(
+        key_reset,
         alphatradePath=config["ATFOLDER"],
-        task=config["TASKSIDE"],
+        #task=config["TASKSIDE"],
         window_index=config["WINDOW_INDEX"],
         action_type=config["ACTION_TYPE"],
         episode_time=config["EPISODE_TIME"],
@@ -350,34 +353,40 @@ def make_train(config):
 
 if __name__ == "__main__":
     timestamp=datetime.datetime.now().strftime("%m-%d_%H-%M")
+    try:
+        ATFolder = sys.argv[1]
+        print("AlphaTrade folder:",ATFolder)
+    except:
+        # ATFolder = "./testing_oneDay"
+        #ATFolder = "/training_oneDay"
+        ATFolder = "/home/duser/AlphaTrade/training_oneDay"
     config = {
         "LR": 2.5e-4,
-        "NUM_ENVS": 256,#256
+        "NUM_ENVS": 256,
         "NUM_STEPS": 128,
-        "TOTAL_TIMESTEPS": 1e6, #4e6 converges.
+        "TOTAL_TIMESTEPS": 4e6,
         "UPDATE_EPOCHS": 4,
-        "NUM_MINIBATCHES": 16,#16
+        "NUM_MINIBATCHES": 16,
         "GAMMA": 0.99,
         "GAE_LAMBDA": 0.95,
         "CLIP_EPS": 0.2,
         "ENT_COEF": 0.,
         "VF_COEF": 0.5,
         "MAX_GRAD_NORM": 0.5,
-        "ACTIVATION": "tanh",
-        "ANNEAL_LR": False,
+        "ACTIVATION": "relu",
+        "ENV_NAME": "AlphaTradeMM",
+        "ANNEAL_LR": True,
         "DEBUG": True,
-        "ENV_NAME": "alphatradeExec-v0",
-        "WINDOW_INDEX": 200, # 2 fix random episode #-1,        
-        "TASKSIDE": "random", # "random", "buy", "sell"
-        "REWARD_LAMBDA": 1., #0.001,
+        
+       "TASKSIDE": "random", # "random", "buy", "sell"
+        "REWARD_LAMBDA": 0.1, #0.001,
         "ACTION_TYPE": "pure", # "delta"
+        "WINDOW_INDEX": 200, # 2 fix random episode #-1,
         "MAX_TASK_SIZE": 100,
-        #"TASK_SIZE": 100, # 500,
-        "EPISODE_TIME": 60 *3, # time in seconds
+        "EPISODE_TIME": 60*5,  # 
         "DATA_TYPE": "fixed_time", # "fixed_time", "fixed_steps"
-        "ATFOLDER": "/home/duser/AlphaTrade/training_oneDay"
+        "ATFOLDER": ATFolder
     }
-    
     if wandbOn:
         run = wandb.init(
             project="AlphaTradeJAX_Train",

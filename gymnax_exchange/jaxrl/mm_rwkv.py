@@ -91,7 +91,7 @@ except:
 
 config = {
     "LR": 1e-3,
-    "NUM_ENVS": 24,
+    "NUM_ENVS": 64,
     "NUM_STEPS": 10,#128,
     "TOTAL_TIMESTEPS": 5e6,
     "UPDATE_EPOCHS": 4,
@@ -107,15 +107,15 @@ config = {
     "DEBUG": True,
     "WANDB": True,
 
-    "TASKSIDE": "random", # "random", "buy", "sell"
+     "TASKSIDE": "random", # "random", "buy", "sell"
         "REWARD_LAMBDA": 0.1, #0.001,
         "ACTION_TYPE": "pure", # "delta"
-        "WINDOW_INDEX": 2, # 2 fix random episode #-1,
+        "WINDOW_INDEX": 200, # 2 fix random episode #-1,
         "MAX_TASK_SIZE": 100,
-        "EPISODE_TIME": 60*60,  # 
+        "EPISODE_TIME": 60*5,  # 
         "DATA_TYPE": "fixed_time", # "fixed_time", "fixed_steps"
         "ATFOLDER": ATFolder
-}
+    }
 
 
 config["NUM_UPDATES"] = (
@@ -148,50 +148,50 @@ env_params = dataclasses.replace(
         episode_time=config["EPISODE_TIME"],
     )
 if wandbOn:
-        run = wandb.init(
-            project="AlphaTradeJAX_rwkv_Train",
-            config=config,
-            save_code=True,  # 
-        )
+    run = wandb.init(
+        project="AlphaTradeJAX_rwkv_Train",
+        config=config,
+        save_code=True,
+        reinit=True  # Ensures logging works even if script restarts
+    )
+
 if wandbOn:
-    def log_all_metrics(action, info, global_timestep):
-        """JAX-compatible callback for all metrics logging"""
-        # Environment metrics
-        metrics = {
-            "global_step": int(jnp.max(info["timesteps"]) if info["timesteps"].size > 0 else 0),
-            "reward": float(jnp.mean(info["reward"]) if info["reward"].size > 0 else 0),
-            "PnL": float(jnp.mean(info["PnL"]) if info["PnL"].size > 0 else 0),
-            "inventory": float(jnp.mean(info["inventories"]) if info["inventories"].size > 0 else 0),
-            "buyQuant": float(jnp.mean(info["buyQuant"]) if info["buyQuant"].size > 0 else 0),
-            "sellQuant": float(jnp.mean(info["sellQuant"]) if info["sellQuant"].size > 0 else 0),
-            "other_exec_quants": float(jnp.mean(info["other_exec_quants"]) if info["other_exec_quants"].size > 0 else 0),
-        }
+    def log_all_metrics(info):
+        """Logs training metrics to wandb in real-time using jax.debug.callback."""
+        return_values = info["returned_episode_returns"][info["returned_episode"]]
+        timesteps = info["timestep"][info["returned_episode"]] * config["NUM_ENVS"]
+        PnL = info["total_PnL"]
+        inventories = info["inventory"]
+        buyQuant = info["buyQuant"]
+        sellQuant = info["sellQuant"]
+        reward = info["reward"]
+        other_exec_quants = info["other_exec_quants"]
 
-        # Action distribution
-        unique_actions, counts = jnp.unique(action, return_counts=True)
-        for a, c in zip(unique_actions, counts):
-            metrics[f"actions/{int(a)}"] = int(c)
+        wandb.log(
+            {
+                "global_step": jnp.max(timesteps) if timesteps.size > 0 else 0,
+                "reward": jnp.mean(reward) if reward.size > 0 else 0,
+                "episodic_return": jnp.mean(return_values) if return_values.size > 0 else 0,
+                "PnL": jnp.mean(PnL) if PnL.size > 0 else 0,
+                "inventory": jnp.mean(inventories) if inventories.size > 0 else 0,
+                "buyQuant": jnp.mean(buyQuant) if buyQuant.size > 0 else 0,
+                "sellQuant": jnp.mean(sellQuant) if sellQuant.size > 0 else 0,
+                "other_exec_quants": jnp.mean(other_exec_quants) if other_exec_quants.size > 0 else 0,
+            },
+            commit=True,  # Ensures immediate update in wandb
+        )
 
-        # Episode returns
-        if "returned_episode_returns" in info:
-            returns = info["returned_episode_returns"]
-            metrics.update({
-                "returns/avg": float(jnp.mean(returns)),
-                "returns/max": float(jnp.max(returns)),
-                "returns/min": float(jnp.min(returns))
-            })
+        for t in range(len(timesteps)):
+            print(f"global step={timesteps[t]}, episodic return={return_values[t]}")
 
-        # Add global timestep
-        metrics["global_timestep"] = int(global_timestep)
-        
-        wandb.log(metrics)
+
     
 env = FlattenObservationWrapper(env)
 env = LogWrapper(env)
 
 num_tokens = 1 + env.action_space(env_params).n + 256
 config["MIN_ACTION_TOK"] = 1
-config["MAX_ACTION_TOK"] = 4
+config["MAX_ACTION_TOK"] = 3
 
 RWKV, params = get_rand_model(0, "6", 3, 256, num_tokens, dtype=jnp.float32, rwkv_type="ScanRWKV")
 forward, params = get_ppo_agent(RWKV, params, seed=1)
@@ -244,6 +244,12 @@ for _ in range(int(config["TOTAL_TIMESTEPS"]) // config["NUM_STEPS"] // config["
         pi, value, state = v_forward_jit(tokenized, state, params, jnp.ones(config["NUM_ENVS"], dtype=jnp.int32) * tokenized.shape[-1])
         pi = distrax.Categorical(logits=pi[..., -1, config["MIN_ACTION_TOK"]:config["MAX_ACTION_TOK"] + 1])
         action = pi.sample(seed=_rng)
+        def log_action_distribution(action):
+                    unique_actions, counts = jnp.unique(action, return_counts=True)
+                    action_distribution = {f"action_{int(a)}": int(c) for a, c in zip(unique_actions, counts)}
+                    wandb.log(action_distribution)
+        if wandbOn:
+            jax.debug.callback(log_action_distribution, action)
         ##
         current_actions = jax.device_get(action)
         all_actions.extend(current_actions.flatten().tolist())
@@ -254,13 +260,8 @@ for _ in range(int(config["TOTAL_TIMESTEPS"]) // config["NUM_STEPS"] // config["
         rng, _rng = jax.random.split(rng)
         rng_step = jax.random.split(_rng, config["NUM_ENVS"])
         obsv, env_state, reward, done, info = v_env_step(rng_step, env_state, action, env_params)
-        # Inside your training loop (after getting action and info):
         if wandbOn:
-            # Create metric package
-            log_package = (action, info, global_timestep)
-            
-            # Dispatch logging callback
-            jax.debug.callback(log_all_metrics, *log_package)
+            jax.debug.callback(log_all_metrics, info, global_timestep)
 
         
         state = jax.vmap(jax.lax.select)(done, init_state, state)

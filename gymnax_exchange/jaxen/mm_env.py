@@ -693,7 +693,7 @@ class MarketMakingEnv(BaseLOBEnv):
         bid_offsets = jnp.array([0, 0, 0, 0, -1, 1, -1, -5], dtype=jnp.int32)
         ask_offsets = jnp.array([0, 0, 0, 0, -1, 1, 1, 5], dtype=jnp.int32)
         bid_quants = jnp.array([0, 10, 0, 10, 10, 10, 10, 10], dtype=jnp.int32)
-        ask_quants = jnp.array([0, 10, 10, 0, 10, 10, 10, 10], dtype=jnp.int32)
+        ask_quants = jnp.array([0, 0, 10, 10, 10, 10, 10, 10], dtype=jnp.int32)
 
         #Testing aggr
         #bid_offsets = jnp.array([0, 0, 10, -1, -1, 1, 0, 0], dtype=jnp.int32)
@@ -1243,8 +1243,8 @@ class MarketMakingEnv(BaseLOBEnv):
         time = state.time[0] + state.time[1]/1e9
         time_elapsed = time - (state.init_time[0] + state.init_time[1]/1e9)
         obs = {
-            "p_bid" : jnp.int32((state.best_bids[-100:].mean(axis=0)[0] // self.tick_size) * self.tick_size),#state.best_bids[-1][0],  
-            "p_ask": jnp.int32((state.best_asks[-100:].mean(axis=0)[0] // self.tick_size) * self.tick_size,),#state.best_asks[-1][0], 
+            "p_bid" : jnp.int32((state.best_bids[-10:].mean(axis=0)[0] // self.tick_size) * self.tick_size),#state.best_bids[-1][0],  
+            "p_ask": jnp.int32((state.best_asks[-10:].mean(axis=0)[0] // self.tick_size) * self.tick_size,),#state.best_asks[-1][0], 
             #"p_bid_passive" :  state.bid_passive_2,
             #"p_ask_passive" :  state.ask_passive_2,
             "spread": jnp.abs(state.best_asks[-1][0] - state.best_bids[-1][0]),
@@ -1322,7 +1322,7 @@ class MarketMakingEnv(BaseLOBEnv):
             "time_remaining": self.sliceTimeWindow, # 10 minutes = 600 seconds
             #"init_price": 1e7, #p_std,
             "mid_price": 1e7, #p_std,
-            "inventory" : 100,
+            "inventory" : 10,
             "total_PnL" : 100,
             #"task_size": self.max_task_size,
            # "executed_quant": self.max_task_size,
@@ -1530,7 +1530,7 @@ if __name__ == "__main__":
         key_step, _ = jax.random.split(key_step, 2)
         #test_action=env.action_space().sample(key_policy)
         #test_action = env.action_space().sample(key_policy) 
-        test_action=1
+        test_action=0
         jax.debug.print("test_action :{}",test_action)
         #test_action=0
         #env.action_space().sample(key_policy) // 10
