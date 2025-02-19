@@ -297,12 +297,12 @@ class MarketMakingEnv(BaseLOBEnv):
        # (asks, bids, trades), (new_bestask, new_bestbid), new_id_counter, new_time, mkt_exec_quant, doom_quant = \
         #    self._force_market_order_if_done(key,
         #         bestasks[-1], bestbids[-1], time, asks, bids, trades, state, params)
-        (asks, bids, trades), new_id_counter, new_time=self._trade_at_midprice(
-            bestasks[-1], bestbids[-1], time, asks, bids, trades, state, params)
+        #(asks, bids, trades), new_id_counter, new_time=self._trade_at_midprice(
+        #    bestasks[-1], bestbids[-1], time, asks, bids, trades, state, params)
         bestasks = jnp.concatenate([bestasks,bestasks[-1:,:] ], axis=0, dtype=jnp.int32)
         bestbids = jnp.concatenate([bestbids, bestbids[-1:,:]], axis=0, dtype=jnp.int32)
-        #new_id_counter = state.customIDcounter + self.n_actions + 1
-        #new_time = time + params.time_delay_obs_act
+        new_id_counter = state.customIDcounter + self.n_actions + 1
+        new_time = time + params.time_delay_obs_act
 
         bid_passive_2,quant_bid_passive_2,ask_passive_2,quant_ask_passive_2 = self._get_pass_price_quant(state)
         # TODO: consider adding quantity before (in priority) to each price / level
@@ -683,8 +683,8 @@ class MarketMakingEnv(BaseLOBEnv):
     def _getActionMsgsV2(self, action: jax.Array, state: EnvState, params: EnvParams):
         '''Transform discrete action into bid and ask order messages based on current best prices.'''
         # Compute best_ask and best_bid using a rolling average to reduce variance
-        best_ask = jnp.int32((state.best_asks[-100:].mean(axis=0)[0] // self.tick_size) * self.tick_size)
-        best_bid = jnp.int32((state.best_bids[-100:].mean(axis=0)[0] // self.tick_size) * self.tick_size)
+        best_ask = jnp.int32((state.best_asks[-5:].mean(axis=0)[0] // self.tick_size) * self.tick_size)
+        best_bid = jnp.int32((state.best_bids[-5:].mean(axis=0)[0] // self.tick_size) * self.tick_size)
         
         # Convert action to integer scalar (assuming action is a single-element array)
         #action = jax.lax.convert_element_type(action[0], jnp.int32)  # Ensure it's a scalar
@@ -1198,18 +1198,13 @@ class MarketMakingEnv(BaseLOBEnv):
        # penalty = jnp.where(jnp.abs(state.inventory) > penalty_threshold, penalty_amount, 0.0)
         #reward = reward - penalty
         
-        
-        
-        
-        
         #Real Revenue calcs: (actual cash flow+actual value of portfolio)
         income=(agent_sells[:, 0]/ self.tick_size* jnp.abs(agent_sells[:, 1])).sum() 
         outgoing=(agent_buys[:, 0] / self.tick_size* jnp.abs(agent_buys[:, 1])).sum() 
              
         PnL=(income-outgoing)/self.tick_size
 
-        #reward = PnL
-       
+           
         #calculate a fraction of total market activity attributable to us.
         other_exec_quants = jnp.abs(otherTrades[:, 1]).sum()
         market_share = TradedVolume / (TradedVolume + other_exec_quants)

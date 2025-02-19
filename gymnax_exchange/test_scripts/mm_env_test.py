@@ -25,18 +25,20 @@ if __name__ == "__main__":
         ATFolder = sys.argv[1]
         print("AlphaTrade folder:", ATFolder)
     except:
-        ATFolder = "./training_oneDay"
+        ATFolder = "/home/duser/AlphaTrade/training_oneDay"
     
     config = {
         "ATFOLDER": ATFolder,
-        "TASKSIDE": "buy",
-        "MAX_TASK_SIZE": 2,
-        "WINDOW_INDEX": 0,
+        #"TASKSIDE": "buy",
+
+        "MAX_TASK_SIZE": 100,
+        "WINDOW_INDEX": 2,
         "ACTION_TYPE": "pure",
         "REWARD_LAMBDA": 0.1,
         "EP_TYPE": "fixed_time",
-        "EPISODE_TIME": 240,  # 
+        "EPISODE_TIME": 60*60,  # 
     }
+        
 
     # Set up random keys for JAX
     rng = jax.random.PRNGKey(50)
@@ -44,8 +46,9 @@ if __name__ == "__main__":
 
     # Initialize the environment
     env = MarketMakingEnv(
+        key_reset,
         alphatradePath=config["ATFOLDER"],
-        task=config["TASKSIDE"],
+        #task=config["TASKSIDE"],
         window_index=config["WINDOW_INDEX"],
         action_type=config["ACTION_TYPE"],
         episode_time=config["EPISODE_TIME"],
@@ -119,8 +122,9 @@ if __name__ == "__main__":
         # ==================== ACTION ====================
         key_policy, _ = jax.random.split(key_policy, 2)
         key_step, _ = jax.random.split(key_step, 2)
-        test_action= test_action = env.action_space().sample(key_policy) 
-        #test_action = 1
+        #test_action= test_action = env.action_space().sample(key_policy) 
+        #jax.debug.print("action{}",test_action)
+        test_action=7
         
         start = time.time()
         obs, state, reward, done, info = env.step(key_step, state, test_action, env_params)
@@ -129,6 +133,8 @@ if __name__ == "__main__":
         #ask_raw_orders_history[i, :, :] = state.ask_raw_orders
         #bid_raw_orders_history[i, :, :] = state.bid_raw_orders
         rewards[i] = reward
+       # jax.debug.print("reward:{}",reward)
+       # jax.debug.print("inv:{}",info["inventory"])
         inventory[i] = info["inventory"]
         total_PnL[i] = info["total_PnL"]
         buyQuant[i] = info["buyQuant"]

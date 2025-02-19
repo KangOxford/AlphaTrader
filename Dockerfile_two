@@ -1,0 +1,47 @@
+FROM nvidia/cuda:12.1.1-cudnn8-devel-ubuntu22.04
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3-pip \
+    git \
+    vim \
+    sudo \
+    curl \
+    wget \
+    apt-transport-https \
+    ca-certificates \
+    gnupg \
+    libgl1 \
+    p7zip-full \
+    unrar \
+    htop \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install setuptools
+RUN pip3 install setuptools
+
+# Create and configure non-root user
+ARG UID
+RUN useradd -u $UID --create-home duser && \
+    echo "duser:duser" | chpasswd && \
+    adduser duser sudo && \
+    mkdir -p /home/duser/.local/bin && \
+    chown -R duser:duser /home/duser
+
+# Switch to non-root user
+USER duser
+WORKDIR /home/duser/AlphaTrade
+
+# Copy requirements.txt and verify its contents
+COPY --chown=duser:duser requirements.txt /home/duser/AlphaTrade/
+RUN ls -l && cat requirements.txt
+
+# Install requirements
+RUN pip3 install -r requirements.txt
+
+# Add .local/bin to PATH
+RUN echo 'export PATH=$PATH:/home/duser/.local/bin' >> ~/.bashrc
+
+# Configure git
+RUN git config --global user.email "reuben@robots.ox.ac.uk" && \
+    git config --global user.name "reuben"
