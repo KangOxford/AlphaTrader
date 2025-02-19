@@ -1161,12 +1161,12 @@ class MarketMakingEnv(BaseLOBEnv):
        
 
         # Other versions of reward
-        reward=buyPnL+sellPnL
+        #reward=buyPnL+sellPnL
         #reward=buyPnL+sellPnL -jnp.abs(state.inventory)
         undamped_reward=buyPnL+sellPnL+InventoryPnL
         scaledInventoryPnL=InventoryPnL//(new_inventory+1)
         #reward=buyPnL+sellPnL-jnp.abs(state.inventory//10)
-        reward= buyPnL + sellPnL + scaledInventoryPnL - (1-self.rewardLambda)*jnp.maximum(0,scaledInventoryPnL) # Asymmetrically dampened PnL
+        #reward= buyPnL + sellPnL + scaledInventoryPnL - (1-self.rewardLambda)*jnp.maximum(0,scaledInventoryPnL) # Asymmetrically dampened PnL
         #jax.debug.print("reward:{}",reward)
         #More complex reward function (should be added as part of the env if we actually use them):
         inventoryPnL_lambda = 0.002
@@ -1183,7 +1183,7 @@ class MarketMakingEnv(BaseLOBEnv):
   
         #reward = approx_realized_pnl + unrealizedPnL_lambda * approx_unrealized_pnl +  inventoryPnL_lambda * jnp.minimum(InventoryPnL,InventoryPnL*asymmetrically_dampened_lambda) #Last term adds negative inventory PnL without dampening
        
-        #reward= -jnp.abs(new_inventory)
+        reward= -jnp.abs(new_inventory)
         
 
         # Define a penalty if he exceeds a certain inventory
@@ -1477,7 +1477,7 @@ if __name__ == "__main__":
         # ATFolder = "/homes/80/kang/AlphaTrade/testing"
     config = {
         "ATFOLDER": ATFolder,
-        "TASKSIDE": "buy",
+        #"TASKSIDE": "buy",
         "MAX_TASK_SIZE": 100,
         "WINDOW_INDEX": 2,
         "ACTION_TYPE": "pure",
@@ -1492,7 +1492,7 @@ if __name__ == "__main__":
     # env=MarketMakingEnv(ATFolder,"sell",1)
     env = MarketMakingEnv(
         alphatradePath=config["ATFOLDER"],
-        #task=config["TASKSIDE"],
+       #task=config["TASKSIDE"],
         window_index=config["WINDOW_INDEX"],
         action_type=config["ACTION_TYPE"],
         episode_time=config["EPISODE_TIME"],

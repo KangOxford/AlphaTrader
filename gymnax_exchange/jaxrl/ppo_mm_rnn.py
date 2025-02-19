@@ -417,7 +417,7 @@ if __name__ == "__main__":
         "TASKSIDE": "random", # "random", "buy", "sell"
         "REWARD_LAMBDA": 0.001, #0.001,
         "ACTION_TYPE": "pure", # "delta"
-        "WINDOW_INDEX": -1, # 2 fix random episode #-1,
+        "WINDOW_INDEX": 2, # 2 fix random episode #-1,
         "MAX_TASK_SIZE": 100,
         "EPISODE_TIME": 60 * 5, # time in seconds
         "DATA_TYPE": "fixed_time", # "fixed_time", "fixed_steps"
