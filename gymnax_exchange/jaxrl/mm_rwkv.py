@@ -156,7 +156,7 @@ if wandbOn:
     )
 
 if wandbOn:
-    def log_all_metrics(info):
+    def log_all_metrics(info,global_timestep):
         """Logs training metrics to wandb in real-time using jax.debug.callback."""
         return_values = info["returned_episode_returns"][info["returned_episode"]]
         timesteps = info["timestep"][info["returned_episode"]] * config["NUM_ENVS"]
