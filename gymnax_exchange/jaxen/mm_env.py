@@ -1492,7 +1492,7 @@ if __name__ == "__main__":
     # env=MarketMakingEnv(ATFolder,"sell",1)
     env = MarketMakingEnv(
         alphatradePath=config["ATFOLDER"],
-        task=config["TASKSIDE"],
+        #task=config["TASKSIDE"],
         window_index=config["WINDOW_INDEX"],
         action_type=config["ACTION_TYPE"],
         episode_time=config["EPISODE_TIME"],
